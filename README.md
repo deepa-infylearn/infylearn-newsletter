@@ -65,6 +65,21 @@ Drafts are never scheduled automatically, so placeholder content can't go out by
   - With `EMAIL_CHECKER_URL` / `EMAIL_CHECKER_USER` / `EMAIL_CHECKER_PASSWORD` set, addresses that the Email Checker marks invalid, or that use a disposable provider, are skipped. This keeps bounces low, which protects sender reputation.
   - Imported people get a confirmation email by default. Add `--preconfirm` only for people who already opted in elsewhere.
 
+## Look and feel (Infylearn theme)
+
+`theme/admin.css` restyles the listmonk admin: a structured sidebar, a card-based layout, cleaner tables and status pills, and Infylearn branding. `theme/public.css` restyles the pages people see: login, signup form, confirmation and unsubscribe. Both use listmonk's built-in **Settings → Appearance**, so listmonk upgrades don't overwrite them.
+
+```bash
+npm run theme                                # applies both stylesheets through the API
+node scripts/apply-theme.js --build-only     # only writes theme/dist/ (no API token needed)
+```
+
+`theme/public.js` adds a **← Back** button to the subscribe, archive and login pages. listmonk has none, so without it visitors need the browser's back button. It only appears when the visitor came from another page on the same site.
+
+To apply by hand, paste `theme/dist/admin.css` into **Settings → Appearance → Admin**, and `theme/dist/public.css` and `theme/dist/public.js` into the CSS and JS boxes under **Appearance → Public**, then save. Use the `dist` admin file, not `theme/admin.css`: listmonk loads custom CSS before its own, so the build step raises every selector's specificity.
+
+To change the brand colour, edit `--brand` (and `--brand-hover`, `--brand-soft`) at the top of both files and re-run. To use a real logo on the public pages, set **Settings → General → Logo URL**.
+
 ## Going to production
 
 Follow [DEPLOY.md](DEPLOY.md). It covers server checks (port 25, PTR, blocklists), DNS records, the official Postal install, HTTPS, provisioning, connecting listmonk, deliverability testing, warm-up and backups. Afterwards, change the email template (**Campaigns → Templates**) to the company branding.
@@ -88,4 +103,3 @@ Follow [DEPLOY.md](DEPLOY.md). It covers server checks (port 25, PTR, blocklists
 ## Licensing
 
 Postal is MIT licensed. listmonk is AGPL-3.0. Running it unmodified for our own newsletters is fine. If we modify listmonk itself and offer it to others over a network, those changes must be published. The scripts here only talk to its API.
-# infylearn-newsletter

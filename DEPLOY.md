@@ -168,6 +168,14 @@ sudo docker run --rm --network host -v "$PWD":/app -w /app node:20-alpine node -
 
 The setup output includes the signup form to embed on our websites. Admin UI: https://newsletter.ourdomain.com/admin
 
+Apply the Infylearn theme for the admin and public pages:
+
+```bash
+sudo docker run --rm --network host -v "$PWD":/app -w /app node:20-alpine node --env-file=.env scripts/apply-theme.js
+```
+
+(Or paste `theme/dist/admin.css`, `theme/dist/public.css` and `theme/dist/public.js` into **Settings → Appearance**. See README.)
+
 ## 6. Test before the first real issue
 
 1. Add yourself (a Gmail and an Outlook address) to the list and send a test campaign.
