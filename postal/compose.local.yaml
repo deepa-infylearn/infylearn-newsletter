@@ -1,0 +1,86 @@
+# Local test of the full sending chain: listmonk -> Postal -> Mailpit test inbox.
+# Not for production; the server install follows DEPLOY.md (official Postal installer).
+#
+#   docker compose -f compose.yaml -f postal/compose.local.yaml --profile dev up -d
+#
+# Postal admin UI: http://127.0.0.1:5000
+
+x-postal: &postal
+  image: ghcr.io/postalserver/postal:3.3.7
+  restart: unless-stopped
+  volumes:
+    - postal-config:/opt/postal/config
+    - ./postal/provision.rb:/opt/postal/provision.rb:ro
+  environment: &postal-env
+    POSTAL_WEB_HOSTNAME: 127.0.0.1:5000
+    POSTAL_WEB_PROTOCOL: http
+    POSTAL_SMTP_HOSTNAME: postal.local.test
+    POSTAL_SIGNING_KEY_PATH: /opt/postal/config/signing.key
+    # Hand every outgoing message to Mailpit instead of the internet.
+    POSTAL_SMTP_RELAYS: smtp://mailpit:1025?ssl_mode=None
+    MAIN_DB_HOST: postal-db
+    MAIN_DB_USERNAME: root
+    MAIN_DB_PASSWORD: postal-local-only
+    MESSAGE_DB_HOST: postal-db
+    MESSAGE_DB_USERNAME: root
+    MESSAGE_DB_PASSWORD: postal-local-only
+    RAILS_SECRET_KEY: local-only-not-a-secret-local-only-not-a-secret-local-only-not-a-secret
+    DNS_MX_RECORDS: postal.local.test
+    DNS_SPF_INCLUDE: spf.postal.local.test
+    DNS_RETURN_PATH_DOMAIN: rp.postal.local.test
+    DNS_ROUTE_DOMAIN: routes.postal.local.test
+    DNS_TRACK_DOMAIN: track.postal.local.test
+    WEB_SERVER_DEFAULT_BIND_ADDRESS: 0.0.0.0
+    SILENCE_POSTAL_CONFIG_MESSAGES: "true"
+
+services:
+  postal-db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    command: ["--innodb-log-file-size=256M"]
+    environment:
+      MARIADB_ROOT_PASSWORD: postal-local-only
+      MARIADB_DATABASE: postal
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - postal-db:/var/lib/mysql
+
+  # Creates the DKIM signing key on first run, then creates/migrates the database.
+  postal-init:
+    <<: *postal
+    restart: "no"
+    command: ["sh", "-c", "[ -f /opt/postal/config/signing.key ] || openssl genrsa -out /opt/postal/config/signing.key 2048; postal initialize"]
+    depends_on:
+      postal-db:
+        condition: service_healthy
+
+  postal-web:
+    <<: *postal
+    command: ["postal", "web-server"]
+    ports:
+      - "127.0.0.1:5000:5000"
+    depends_on:
+      postal-init:
+        condition: service_completed_successfully
+
+  postal-smtp:
+    <<: *postal
+    command: ["postal", "smtp-server"]
+    depends_on:
+      postal-init:
+        condition: service_completed_successfully
+
+  postal-worker:
+    <<: *postal
+    command: ["postal", "worker"]
+    depends_on:
+      postal-init:
+        condition: service_completed_successfully
+
+volumes:
+  postal-config:
+  postal-db:

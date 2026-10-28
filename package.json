@@ -1,0 +1,12 @@
+{
+  "name": "infylearn-newsletter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Self-hosted newsletter setup on listmonk, with helper scripts for setup, twice-monthly issue planning and verified imports",
+  "engines": { "node": ">=20.6" },
+  "scripts": {
+    "setup": "node --env-file=.env scripts/setup.js",
+    "plan-issues": "node --env-file=.env scripts/plan-issues.js",
+    "import": "node --env-file=.env scripts/import-subscribers.js"
+  }
+}

@@ -1,0 +1,58 @@
+x-db-credentials: &db-credentials
+  POSTGRES_USER: listmonk
+  POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+  POSTGRES_DB: listmonk
+
+services:
+  # Newsletter manager: lists, subscribers, campaigns, templates, analytics.
+  app:
+    image: listmonk/listmonk:v6.2.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9000:9000"   # Put Nginx + HTTPS in front for public access.
+    depends_on:
+      db:
+        condition: service_healthy
+    # Lets listmonk reach Postal's SMTP server on the same machine (SMTP_HOST=host.docker.internal).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Installs the schema on first start only, then applies migrations on upgrades.
+    command: [sh, -c, "./listmonk --install --idempotent --yes --config '' && ./listmonk --upgrade --yes --config '' && ./listmonk --config ''"]
+    environment:
+      LISTMONK_app__address: 0.0.0.0:9000
+      LISTMONK_db__host: db
+      LISTMONK_db__port: 5432
+      LISTMONK_db__user: listmonk
+      LISTMONK_db__password: ${DB_PASSWORD}
+      LISTMONK_db__database: listmonk
+      LISTMONK_db__ssl_mode: disable
+      LISTMONK_ADMIN_USER: ${LISTMONK_ADMIN_USER:-}
+      LISTMONK_ADMIN_PASSWORD: ${LISTMONK_ADMIN_PASSWORD:-}
+      TZ: ${TZ:-Asia/Kolkata}
+    volumes:
+      - ./uploads:/listmonk/uploads:rw
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      <<: *db-credentials
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U listmonk"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    volumes:
+      - listmonk-data:/var/lib/postgresql/data
+
+  # Local test inbox: catches every email so nothing reaches real people.
+  # Only starts with: docker compose --profile dev up -d
+  mailpit:
+    image: axllent/mailpit:v1.32.0
+    restart: unless-stopped
+    profiles: ["dev"]
+    ports:
+      - "127.0.0.1:8025:8025"   # Web inbox at http://127.0.0.1:8025
+
+volumes:
+  listmonk-data:
